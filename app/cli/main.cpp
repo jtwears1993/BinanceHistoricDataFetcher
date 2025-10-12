@@ -2,12 +2,12 @@
 #include <iostream>
 #include <memory>
 
-#include "../include/libs/CLI11.hpp"
+#include "../../include/libs/CLI11.hpp"
 
-#include "../include/binancehistoricaldatafetcher/constants.h"
-#include "../include/binancehistoricaldatafetcher/processor.h"
-#include "../include/binancehistoricaldatafetcher/file_downloader.h"
-#include "../include/binancehistoricaldatafetcher/questdb_writer.h"
+#include "binancehistoricaldatafetcher/constants.h"
+#include "binancehistoricaldatafetcher/processor.h"
+#include "binancehistoricaldatafetcher/file_downloader.h"
+#include "binancehistoricaldatafetcher/questdb_writer.h"
 
 int main(const int argc, char** argv) {
     CLI::App app{settings::APP_NAME};
@@ -58,7 +58,7 @@ int main(const int argc, char** argv) {
 
         auto context = std::make_shared<processor::Context>();
 
-        auto buffer = moodycamel::ConcurrentQueue<downloader::DataEvent>(settings::BUFFER_SIZE);
+        auto buffer = moodycamel::ConcurrentQueue<models::DataEvent>(settings::BUFFER_SIZE);
 
         auto downloader = std::make_unique<downloader::FileDownloader>(
             settings.dataType,

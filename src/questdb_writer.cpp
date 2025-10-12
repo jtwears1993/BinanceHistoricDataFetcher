@@ -3,17 +3,22 @@
 //
 
 #include <chrono>
+#include <vector>
+#include <string>
+#include <memory>
 #include <questdb/ingress/line_sender.hpp>
 
-#include "../include/binancehistoricaldatafetcher/questdb_writer.h"
-#include "../include/binancehistoricaldatafetcher/file_downloader.h"
-#include "../include/binancehistoricaldatafetcher/settings.h"
-#include "../include/binancehistoricaldatafetcher/processor.h"
+#include "binancehistoricaldatafetcher/questdb_writer.h"
+#include "binancehistoricaldatafetcher/file_downloader.h"
+#include "binancehistoricaldatafetcher/settings.h"
+#include "binancehistoricaldatafetcher/processor.h"
+#include "binancehistoricaldatafetcher/binance_market_data_models.h"
 
 using namespace std::chrono_literals;
 
 namespace writer {
-    QuestDBWriter::QuestDBWriter(moodycamel::ConcurrentQueue<downloader::DataEvent> &buffer,
+
+    QuestDBWriter::QuestDBWriter(moodycamel::ConcurrentQueue<models::DataEvent> &buffer,
         const std::string &dbConnectionURI,
         const std::shared_ptr<processor::Context> &context,
         const int batchSize,
@@ -41,7 +46,7 @@ namespace writer {
     void QuestDBWriter::write() {
         const auto now = steady_clock::now;
         while (context_.get()->running.load()) {
-            downloader::DataEvent event;
+            models::DataEvent event;
             auto start = now();
             while (context_.get()->running.load()) {
 
@@ -59,6 +64,9 @@ namespace writer {
                        break;
                     case settings::OHLCV:
                        writeCandleToDbBuffer(*event.candle);
+                       break;
+                    case settings::SNAPSHOT:
+                       writeOrderbookToDbBuffer(*event.orderbook_snapshot);
                        break;
                     default:
                        close();
@@ -82,7 +90,7 @@ namespace writer {
         }
     }
 
-    void QuestDBWriter::writeCandleToDbBuffer(const downloader::Candle& candle_event) {
+    void QuestDBWriter::writeCandleToDbBuffer(const models::Candle& candle_event) {
         const auto openTimeAt = questdb::ingress::timestamp_micros(candle_event.open_time);
         dbBuffer_.table("candles")
         .symbol("symbol", candle_event.symbol)
@@ -98,9 +106,9 @@ namespace writer {
         .at(openTimeAt);
     }
 
-    void QuestDBWriter::writeTradeToDbBuffer(const downloader::Trade& trade_event) {
+    void QuestDBWriter::writeTradeToDbBuffer(const models::Trade& trade_event) {
         const auto tradeTimeAt = questdb::ingress::timestamp_micros(trade_event.time);
-        const auto side = downloader::sideToString(trade_event.side);
+        const auto side = models::sideToString(trade_event.side);
         dbBuffer_.table("trades")
         .symbol("symbol", trade_event.symbol)
         .column("id", trade_event.id)
@@ -108,7 +116,21 @@ namespace writer {
         .symbol("side", side)
         .column("volume", trade_event.qty)
         .column("quote_volume", trade_event.quote_qty)
-        .symbol("product_type", getProductName(trade_event.product_type))
+        .symbol("product_type", settings::getProductName(trade_event.product_type))
         .at(tradeTimeAt);
+    }
+
+    void QuestDBWriter::writeOrderbookToDbBuffer(const models::OrderbookSnapshot& orderbook_event) {
+        const auto eventTimeAt = questdb::ingress::timestamp_micros(orderbook_event.snapshot_time);
+        const auto bids = to_tensor(orderbook_event.bids);
+        const auto asks = to_tensor(orderbook_event.asks);
+        dbBuffer_.table("binance_snapshots")
+        .symbol("symbol", orderbook_event.symbol)
+        .column("snapshot_time", eventTimeAt)
+        .column("bids", bids)
+        .column("asks", asks)
+        .symbol("product_type", settings::getProductName(orderbook_event.product_type))
+        .at_now();
+
     }
 }

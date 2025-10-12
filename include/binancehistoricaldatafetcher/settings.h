@@ -39,6 +39,7 @@ namespace settings {
     enum DataType {
         TRADES,
         OHLCV,
+        SNAPSHOT,
     };
 
     DataType getDataType(const std::string &dataType);

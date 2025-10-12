@@ -4,7 +4,7 @@
 
 #include <string>
 #include <stdexcept>
-#include "../include/binancehistoricaldatafetcher/settings.h"
+#include "binancehistoricaldatafetcher/settings.h"
 
 namespace settings {
     Product getProduct(const std::string &productName) {
@@ -128,6 +128,8 @@ namespace settings {
                 return "trades";
             case OHLCV:
                 return "ohlcv";
+            case SNAPSHOT:
+                return "snapshot";
             default:
                 throw std::invalid_argument("Invalid data type enum value");
         }
@@ -139,6 +141,9 @@ namespace settings {
         }
         if (dataType == "ohlcv") {
             return OHLCV;
+        }
+        if (dataType == "snapshot") {
+            return SNAPSHOT;
         }
         throw std::invalid_argument("Invalid data type name: " + dataType);
     }
