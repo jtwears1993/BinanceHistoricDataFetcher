@@ -16,6 +16,7 @@
 #include "writer.h"
 #include "settings.h"
 #include "processor.h"
+#include "common/rounding/fixed_point.h"
 
 
 using namespace std;
@@ -24,6 +25,13 @@ using namespace std::chrono;
 namespace processor { struct Context; }
 
 namespace writer {
+
+    constexpr auto SNAPSHOTS_TABLE = "binance_futures_snapshots";
+    constexpr auto SNAPSHOTS_COL_SYMBOL = "symbol";
+    constexpr auto SNAPSHOTS_COL_SNAPSHOT_TIME = "snapshot_time";
+    constexpr auto SNAPSHOTS_COL_BIDS = "bids";
+    constexpr auto SNAPSHOTS_COL_ASKS = "asks";
+    constexpr auto SNAPSHOTS_PRODUCT_TYPE = "product_type";
 
     struct tensor {
         std::vector<double> data;
@@ -39,7 +47,7 @@ namespace writer {
         };
     }
 
-    inline tensor to_tensor(const std::vector<models::PriceLevel> &price_levels) {
+    inline tensor to_tensor(const std::vector<models::PriceLevel> &price_levels, const int tick_size, const int step_size) {
         // price level is a price and a volume as a double
         // so two columns, n rows
         //  would be the number of price levels - so the length of the vector
@@ -48,8 +56,10 @@ namespace writer {
             t.shape = {size, 2};
             t.data.reserve(size * 2);
             for (const auto &[price, quantity] : price_levels) {
-                t.data.push_back(price);
-                t.data.push_back(quantity);
+                auto price_double = common::rounding::FixedPoint::to_double(price, tick_size);
+                auto quantity_double = common::rounding::FixedPoint::to_double(quantity, step_size);
+                t.data.push_back(price_double);
+                t.data.push_back(quantity_double);
             }
             return t;
         }
@@ -67,13 +77,15 @@ namespace writer {
         settings::DataType dataType_;
         questdb::ingress::line_sender_buffer dbBuffer_;
         milliseconds flushInterval_;
-
+        const std::shared_ptr<std::unordered_map<std::string, models::ExchangeInfo>> exchangeInfo_;
+        const common::rounding::FixedPoint rounder_{};
 
     public:
 
         explicit QuestDBWriter(moodycamel::ConcurrentQueue<models::DataEvent> &buffer,
             const std::string &dbConnectionURI,
             const std::shared_ptr<processor::Context> &context,
+            const std::shared_ptr<std::unordered_map<std::string, models::ExchangeInfo>> &exchangeInfo,
             int batchSize = 1000,
             int flushIntervalMs = 1000,
             settings::DataType dataType = settings::TRADES);

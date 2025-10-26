@@ -12,21 +12,24 @@
 #include "binancehistoricaldatafetcher/settings.h"
 
 namespace models {
-    template<typename UpdateMsg, typename SnapshotMsg>
+    template<typename UpdateMsg>
     class BinanceOrderbook  {
     protected:
         MultiSymbolOrderbook multi_symbol_orderbook_;
         const std::vector<std::string> symbols_;
         const settings::Product product_;
-
+        std::shared_ptr<std::unordered_map<std::string, ExchangeInfo>> exchange_info_;
 
     public:
-        explicit BinanceOrderbook(const std::vector<std::string>& symbols, const settings::Product product) :
-            multi_symbol_orderbook_(symbols), symbols_(symbols), product_(product) {};
+        explicit BinanceOrderbook(const std::vector<std::string>& symbols,
+            const settings::Product product,
+            const std::shared_ptr<std::unordered_map<std::string, ExchangeInfo>> &exchange_info) :
+            multi_symbol_orderbook_(symbols), symbols_(symbols), product_(product),
+            exchange_info_(exchange_info) {};
 
         virtual ~BinanceOrderbook() = default;
 
-        virtual void init(const std::vector<SnapshotMsg>& snapshots) = 0;
+        virtual void init(const std::vector<std::string>& symbols) = 0;
 
         virtual int process_update(const UpdateMsg& snapshot) = 0;
 

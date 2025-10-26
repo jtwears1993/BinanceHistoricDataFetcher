@@ -12,6 +12,8 @@
 
 #include "constants.h"
 #include "settings.h"
+#include "common/rounding/fixed_point.h"
+
 
 namespace models {
 
@@ -68,14 +70,14 @@ namespace models {
     };
 
     struct PriceLevel {
-        double price;
-        double quantity;
+        std::int32_t price;
+        std::int32_t quantity;
     };
 
-    inline void from_json(const nlohmann::json &j, PriceLevel &p) {
+    inline void from_json(const nlohmann::json &j, PriceLevel &p, const int price_precision, const int quantity_precision) {
         if (j.is_array() && j.size() == 2) {
-            p.price = std::stod(j.at(0).get<std::string>());
-            p.quantity = std::stod(j.at(1).get<std::string>());
+            p.price = common::rounding::FixedPoint::from_string(j.at(0).get<std::string>(), price_precision);
+            p.quantity = common::rounding::FixedPoint::from_string(j.at(1).get<std::string>(), quantity_precision);
         } else {
             throw std::runtime_error("Invalid PriceLevel JSON format");
         }
@@ -90,12 +92,25 @@ namespace models {
         std::string symbol;
     };
 
-    inline void from_json(const nlohmann::json &j, BinanceFuturesOrderbookSnapshot &snapshot) {
+    inline void from_json(const nlohmann::json &j, BinanceFuturesOrderbookSnapshot &snapshot, const int price_precision, const int quantity_precision) {
         j.at("lastUpdateId").get_to(snapshot.lastUpdate_id);
         j.at("E").get_to(snapshot.message_time);
         j.at("T").get_to(snapshot.transaction_time);
-        j.at("bids").get_to(snapshot.bids);
-        j.at("asks").get_to(snapshot.asks);
+
+        std::vector<PriceLevel> bids;
+        std::vector<PriceLevel> asks;
+        for (const auto &item : j.at("bids")) {
+            PriceLevel p{};
+            from_json(item, p, price_precision, quantity_precision);
+            bids.push_back(p);
+        }
+        for (const auto &item : j.at("asks")) {
+            PriceLevel p{};
+            from_json(item, p, price_precision, quantity_precision);
+            asks.push_back(p);
+        }
+        snapshot.bids = bids;
+        snapshot.asks = asks;
     }
 
     struct BinanceFuturesSocketDepthSnapshot {
@@ -110,17 +125,22 @@ namespace models {
         std::vector<PriceLevel> asks; // "a"
     };
 
-    inline void from_json(const nlohmann::json &j, BinanceFuturesSocketDepthSnapshot &snapshot) {
-        j.at("e").get_to(snapshot.event_type);
-        j.at("E").get_to(snapshot.event_time);
-        j.at("T").get_to(snapshot.transaction_time);
-        j.at("s").get_to(snapshot.symbol);
-        j.at("U").get_to(snapshot.first_update_id);
-        j.at("u").get_to(snapshot.final_update_id);
-        j.at("pu").get_to(snapshot.previous_final_update_id);
-        j.at("b").get_to(snapshot.bids);
-        j.at("a").get_to(snapshot.asks);
-    }
+    // inline void from_json(const nlohmann::json &j, BinanceFuturesSocketDepthSnapshot &snapshot) {
+    //     j.at("e").get_to(snapshot.event_type);
+    //     j.at("E").get_to(snapshot.event_time);
+    //     j.at("T").get_to(snapshot.transaction_time);
+    //     j.at("s").get_to(snapshot.symbol);
+    //     j.at("U").get_to(snapshot.first_update_id);
+    //     j.at("u").get_to(snapshot.final_update_id);
+    //     j.at("pu").get_to(snapshot.previous_final_update_id);
+    //     j.at("b").get_to(snapshot.bids);
+    //     j.at("a").get_to(snapshot.asks);
+    // }
+
+    struct ExchangeInfo {
+        int tick_size;
+        int step_size;
+    };
 
     struct OrderbookSnapshot {
         long long snapshot_time;

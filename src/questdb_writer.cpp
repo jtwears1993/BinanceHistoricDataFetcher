@@ -3,7 +3,6 @@
 //
 
 #include <chrono>
-#include <vector>
 #include <string>
 #include <memory>
 #include <questdb/ingress/line_sender.hpp>
@@ -14,6 +13,7 @@
 #include "binancehistoricaldatafetcher/processor.h"
 #include "binancehistoricaldatafetcher/binance_market_data_models.h"
 
+
 using namespace std::chrono_literals;
 
 namespace writer {
@@ -21,6 +21,7 @@ namespace writer {
     QuestDBWriter::QuestDBWriter(moodycamel::ConcurrentQueue<models::DataEvent> &buffer,
         const std::string &dbConnectionURI,
         const std::shared_ptr<processor::Context> &context,
+        const std::shared_ptr<std::unordered_map<std::string, models::ExchangeInfo>> &exchangeInfo,
         const int batchSize,
         const int flushIntervalMs,
         const settings::DataType dataType) : buffer_(buffer),
@@ -31,7 +32,8 @@ namespace writer {
                                             context_(context),
                                             dataType_(dataType),
                                             dbBuffer_(dbSender.new_buffer()),
-                                            flushInterval_(flushIntervalMs * 1ms)
+                                            flushInterval_(flushIntervalMs * 1ms),
+                                            exchangeInfo_(exchangeInfo)
     {}
 
 
@@ -41,6 +43,7 @@ namespace writer {
        }
         dbSender.close();
         context_.get()->consumerDone.store(true);
+        context_.get()->running.store(false);
     }
 
     void QuestDBWriter::write() {
@@ -94,6 +97,8 @@ namespace writer {
         const auto openTimeAt = questdb::ingress::timestamp_micros(candle_event.open_time);
         dbBuffer_.table("candles")
         .symbol("symbol", candle_event.symbol)
+        .symbol("product_type", getProductName(candle_event.product_type))
+        .symbol("frequency", getCandleFrequencyName(candle_event.frequency))
         .column("open_time", candle_event.open_time)
         .column("open", candle_event.open)
         .column("high", candle_event.high)
@@ -101,8 +106,6 @@ namespace writer {
         .column("close", candle_event.close)
         .column("volume", candle_event.volume)
         .column("close_time", candle_event.close_time)
-        .symbol("product_type", getProductName(candle_event.product_type))
-        .symbol("frequency", getCandleFrequencyName(candle_event.frequency))
         .at(openTimeAt);
     }
 
@@ -111,25 +114,24 @@ namespace writer {
         const auto side = models::sideToString(trade_event.side);
         dbBuffer_.table("trades")
         .symbol("symbol", trade_event.symbol)
+        .symbol("side", side)
+        .symbol("product_type", settings::getProductName(trade_event.product_type))
         .column("id", trade_event.id)
         .column("price", trade_event.price)
-        .symbol("side", side)
         .column("volume", trade_event.qty)
         .column("quote_volume", trade_event.quote_qty)
-        .symbol("product_type", settings::getProductName(trade_event.product_type))
         .at(tradeTimeAt);
     }
 
     void QuestDBWriter::writeOrderbookToDbBuffer(const models::OrderbookSnapshot& orderbook_event) {
-        const auto eventTimeAt = questdb::ingress::timestamp_micros(orderbook_event.snapshot_time);
-        const auto bids = to_tensor(orderbook_event.bids);
-        const auto asks = to_tensor(orderbook_event.asks);
+        auto [tick_size, step_size] = exchangeInfo_->at(orderbook_event.symbol);
+        const auto bids = to_tensor(orderbook_event.bids, tick_size, step_size);
+        const auto asks = to_tensor(orderbook_event.asks, tick_size, step_size);
         dbBuffer_.table("binance_snapshots")
         .symbol("symbol", orderbook_event.symbol)
-        .column("snapshot_time", eventTimeAt)
+        .symbol("product_type", settings::getProductName(orderbook_event.product_type))
         .column("bids", bids)
         .column("asks", asks)
-        .symbol("product_type", settings::getProductName(orderbook_event.product_type))
         .at_now();
 
     }

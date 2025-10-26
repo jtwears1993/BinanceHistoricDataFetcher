@@ -8,15 +8,12 @@
 #include <atomic>
 #include <string>
 #include <memory>
-#include <optional>
 #include <concurrentqueue/concurrentqueue.h>
 
 #include "binance_futures_orderbook.h"
 #include "binance_futures_orderbook_snapshots_socket_client.h"
 
 namespace processor {
-
-    constexpr auto PROD_BINANCE_FUTURES_REST_URL = "https://fapi.binance.com/fapi/v1/depth";
 
     class BinanceFuturesBookBuilder {
         std::shared_ptr<models::BinanceFuturesOrderbook> order_books_;
@@ -47,8 +44,6 @@ namespace processor {
         void stop();
     private:
         void get_snapshots() const;
-
-        static std::optional<models::BinanceFuturesOrderbookSnapshot> get_snapshot(const std::string &symbol);
         void build_book(const std::string &symbol) const;
     };
 }

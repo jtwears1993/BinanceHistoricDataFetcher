@@ -16,16 +16,12 @@ namespace processor {
     using json = nlohmann::json;
 
     void BinanceFuturesBookBuilder::start() {
-        socket_client_->start();
-        std::vector<models::BinanceFuturesOrderbookSnapshot> snapshots;
-        for (const auto &symbol : symbols_) {
-            auto snapshot = get_snapshot(symbol);
-            if (!snapshot.has_value()) {
-                throw std::runtime_error("Failed to get snapshot for symbol: " + symbol);
-            }
-            snapshots.push_back(snapshot.value());
+        auto res = socket_client_->start();
+        if (res != EXIT_SUCCESS) {
+            std::cerr << "ERROR::BinanceFuturesBookBuilder:: Error starting socket client: " << res << std::endl;
+            throw std::runtime_error("Failed to start BinanceFuturesBookBuilder socket client");
         }
-        order_books_->init(snapshots);
+        order_books_->init(symbols_);
         // start threads to process updates
         is_running_ = true;
         for (const auto &symbol : symbols_) {
@@ -56,19 +52,6 @@ namespace processor {
         event_queue_.enqueue_bulk(snapshots.data(), snapshots.size());
     }
 
-    std::optional<models::BinanceFuturesOrderbookSnapshot> BinanceFuturesBookBuilder::get_snapshot(const std::string &symbol) {
-        const auto response = cpr::Get(cpr::Url{PROD_BINANCE_FUTURES_REST_URL},
-                                       cpr::Parameters{{"symbol", symbol},
-                                                       {"limit", "1000"}});
-
-        if (response.status_code != 200) {
-            return std::nullopt;
-        }
-        models::BinanceFuturesOrderbookSnapshot snapshot;
-        models::from_json(json::parse(response.text), snapshot);
-        return snapshot;
-    }
-
     void BinanceFuturesBookBuilder::build_book(const std::string &symbol) const {
         while (is_running_) {
             auto updates = order_books_->deque_update(symbol);
@@ -79,10 +62,15 @@ namespace processor {
                 auto res = order_books_->process_update(update);
                 if (res == -1) {
                     // get fresh snapshot and re-init
-                    auto snapshot = get_snapshot(symbol);
-                    order_books_->init_order_book(snapshot.value());
+                    std::cout << "WARN::BinanceFuturesBookBuilder::build_book Re-initializing order book for symbol: " << symbol << "\n";
+                    order_books_->init_order_book(symbol);
                     break;
                 }
+                // publish update event
+                models::DataEvent event;
+                event.orderbook_snapshot = order_books_->get_snapshot(symbol, depth_);
+                event_queue_.enqueue(event);
+                std::cout << "INFO::BinanceFuturesBookBuilder::build_book Published update for symbol: " << symbol << "\n";
             }
         }
     }

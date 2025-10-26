@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 4.0)
+cmake_minimum_required(VERSION 3.28.3)
 project(BinanceHistoricDataFetcher CXX)
 
 set(CMAKE_CXX_STANDARD 20)
@@ -30,8 +30,8 @@ FetchContent_MakeAvailable(json)
 # Elzip (subdirectory)
 add_subdirectory(include/libs/11Zip)
 
-# Websocket++ (subdirectory)
-#add_subdirectory(include/libs/websocketpp/websocketpp)
+find_package(Boost REQUIRED COMPONENTS system thread)
+find_package(OpenSSL REQUIRED)
 
 # --- 1. Define Shared Logic Library ---
 
@@ -45,6 +45,9 @@ add_library(
         src/processor.cpp
         src/writer.cpp
         src/binance_futures_orderbook.cpp
+        src/orderbook_archiver.cpp
+        src/binance_futures_book_builder.cpp
+        src/binance_futures_order_book_snapshot_socket_client.cpp
 )
 
 # Set common include directories for the shared logic
@@ -58,6 +61,7 @@ target_include_directories(binance_shared_logic
         $<TARGET_PROPERTY:elzip,INTERFACE_INCLUDE_DIRECTORIES>
         ${PROJECT_SOURCE_DIR}/include/libs/websocketpp
         $<TARGET_PROPERTY:nlohmann_json::nlohmann_json,INTERFACE_INCLUDE_DIRECTORIES>
+        ${PROJECT_SOURCE_DIR}/include/libs/concurrentqueue
 )
 
 # --- 2. Define the CLI Executable ---
@@ -75,6 +79,10 @@ target_link_libraries(
         cpr::cpr
         elzip
         nlohmann_json::nlohmann_json
+        Boost::system
+        Boost::thread
+        OpenSSL::SSL
+        OpenSSL::Crypto
 )
 
 # --- 3. Define the Continuous Application Executable ---
@@ -92,4 +100,8 @@ target_link_libraries(
         cpr::cpr
         elzip
         nlohmann_json::nlohmann_json
+        Boost::system
+        Boost::thread
+        OpenSSL::SSL
+        OpenSSL::Crypto
 )

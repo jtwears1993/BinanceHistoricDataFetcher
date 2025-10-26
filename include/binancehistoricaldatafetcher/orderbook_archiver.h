@@ -2,34 +2,42 @@
 // Created by jtwears on 10/12/25.
 //
 
-#ifndef BINANCEHISTORICDATAFETCHER_ARCHIVER_H
-#define BINANCEHISTORICDATAFETCHER_ARCHIVER_H
+#pragma once
 
 #include <atomic>
-#include <csignal>
-#include "binancehistoricaldatafetcher/settings.h"
+#include <memory>
+#include <thread>
 #include "binancehistoricaldatafetcher/binance_futures_book_builder.h"
 #include "binancehistoricaldatafetcher/binance_futures_orderbook_snapshots_socket_client.h"
 #include "binancehistoricaldatafetcher/questdb_writer.h"
 
 
 namespace processor {
-    class Archiver {
-        std::atomic<bool> is_running_;
-        BinanceFuturesBookBuilder book_builder_;
-        downloader::BinanceFuturesOrderbookSnapshotsSocketClient socket_client_;
-        writer::QuestDBWriter quest_db_writer_;
-
-
+    class OrderbookArchiver {
+        // make the running flag static so a static signal handler can modify it
+        static std::atomic<bool> is_running_;
+        std::unique_ptr<BinanceFuturesBookBuilder> book_builder_;
+        std::unique_ptr<downloader::BinanceFuturesOrderbookSnapshotsSocketClient> socket_client_;
+        std::unique_ptr<writer::QuestDBWriter> quest_db_writer_;
+        std::thread writer_thread_;
     public:
-        Archiver() : is_running_(false) {
+        OrderbookArchiver(
+            std::unique_ptr<BinanceFuturesBookBuilder> book_builder,
+            std::unique_ptr<downloader::BinanceFuturesOrderbookSnapshotsSocketClient> socket_client,
+            std::unique_ptr<writer::QuestDBWriter> quest_db_writer
+        ) :
+        book_builder_(std::move(book_builder)),
+        socket_client_(std::move(socket_client)),
+        quest_db_writer_(std::move(quest_db_writer)) {}
+        ~OrderbookArchiver() noexcept;
 
-        }
-        ~Archiver() = default;
-        void handle_signals();
+        // signal handler must be static to be usable with std::signal
+        static void handle_signals(int signum);
+
+        // allow external code to observe the running flag (useful for main loop)
+        static std::atomic<bool>& runningFlag();
+
         void start();
-        void stop();
+        int stop() noexcept;
     };
 }
-
-#endif //BINANCEHISTORICDATAFETCHER_ARCHIVER_H

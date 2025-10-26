@@ -27,8 +27,8 @@ namespace models {
     };
 
     class Orderbook {
-        std::pmr::map<double, PriceLevel, BidComparator> bids_; // price -> quantity
-        std::pmr::map<double, PriceLevel, AskComparator> asks_; // price -> quantity
+        std::pmr::map<std::int32_t, PriceLevel, BidComparator> bids_; // price -> quantity
+        std::pmr::map<std::int32_t, PriceLevel, AskComparator> asks_; // price -> quantity
 
     public:
         Orderbook() : bids_(
@@ -57,12 +57,12 @@ namespace models {
             if (!bids_.empty()) {
                 std::get<0>(top_of_book) = bids_.begin()->second;
             } else {
-                std::get<0>(top_of_book) = PriceLevel{0.0, 0.0};
+                std::get<0>(top_of_book) = PriceLevel{0, 0};
             }
             if (!asks_.empty()) {
                 std::get<1>(top_of_book) = asks_.begin()->second;
             } else {
-                std::get<1>(top_of_book) = PriceLevel{0.0, 0.0};
+                std::get<1>(top_of_book) = PriceLevel{0, 0};
             }
             return top_of_book;
         }
@@ -89,9 +89,9 @@ namespace models {
             return levels;
         }
 
-        void add(const double price, const double volume, const bool is_bid) {
+        void add(const std::int32_t price, const std::int32_t volume, const bool is_bid) {
 
-            if (!is_valid_price(price) || volume <= 0.0) {
+            if (!is_valid_price(price) || volume <= 0) {
                 return; // Invalid price or volume
             }
 

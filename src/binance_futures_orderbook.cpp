@@ -5,16 +5,20 @@
 #include <string>
 #include <vector>
 #include <thread>
+#include <iostream>
 
 #include "binancehistoricaldatafetcher/binance_orderbook.h"
 #include "binancehistoricaldatafetcher/binance_futures_orderbook.h"
 #include "binancehistoricaldatafetcher/binance_market_data_models.h"
+#include "cpr/api.h"
+#include "cpr/cprtypes.h"
+#include "cpr/parameters.h"
 
 namespace models {
 
-    void BinanceFuturesOrderbook::init(const std::vector<BinanceFuturesOrderbookSnapshot>& snapshots) {
+    void BinanceFuturesOrderbook::init(const std::vector<std::string>& symbols) {
         std::vector<std::thread> threads;
-        for (const auto& snapshot : snapshots) {
+        for (const auto& snapshot : symbols) {
             threads.emplace_back([this, &snapshot]() {
                 this->init_order_book(snapshot);
             });
@@ -26,7 +30,12 @@ namespace models {
         }
     }
 
-    void BinanceFuturesOrderbook::init_order_book(const BinanceFuturesOrderbookSnapshot &snapshot) {
+    void BinanceFuturesOrderbook::init_order_book(const std::string& symbol) {
+        const auto snapshot_ = fetch_snapshot(symbol);
+        [[unlikely]] if (!snapshot_.has_value()) {
+            throw std::runtime_error("Failed to get snapshot for symbol: " + symbol);
+        }
+        auto snapshot = snapshot_.value();
         const auto symbol_context = context_.find(snapshot.symbol);
         [[unlikely]] if (symbol_context == context_.end()) {
             throw std::invalid_argument("Symbol not found in orderbook context");
@@ -59,6 +68,9 @@ namespace models {
                     symbol_context->second.is_initialized = true;
                     break;
                 }
+                // hit this snapshot is stale
+                // fetch new snapshot
+                snapshot = fetch_snapshot(symbol).value();
             }
         }
     }
@@ -95,6 +107,22 @@ namespace models {
                 multi_symbol_orderbook_.remove_price_level(symbol, level, is_bid);
             }
         }
+    }
+
+    std::optional<BinanceFuturesOrderbookSnapshot> BinanceFuturesOrderbook::fetch_snapshot(const std::string &symbol) const {
+        auto depth = std::to_string(depth_);
+        const auto response = cpr::Get(cpr::Url{PROD_BINANCE_FUTURES_REST_URL},
+                                       cpr::Parameters{{"symbol", symbol},
+                                                       {"limit", depth}});
+
+        if (response.status_code != 200) {
+            return std::nullopt;
+        }
+        BinanceFuturesOrderbookSnapshot snapshot;
+        auto [tick_size, step_size] = exchange_info_->at(symbol);
+        models::from_json(nlohmann::json::parse(response.text), snapshot, tick_size, step_size);
+        snapshot.symbol = symbol;
+        return snapshot;
     }
 }
 
