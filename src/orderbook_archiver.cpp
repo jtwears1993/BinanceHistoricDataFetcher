@@ -35,14 +35,6 @@ namespace processor {
         std::signal(SIGTERM, handle_signals);
         std::signal(SIGTERM, handle_signals);
         try {
-            if (socket_client_) {
-                if (const int rc = socket_client_->start(); rc != 0) {
-                    // failed to start socket client; attempt clean stop and return
-                    is_running_.store(false);
-                    stop();
-                    return;
-                }
-            }
 
             if (book_builder_) {
                 book_builder_->start();
@@ -82,16 +74,6 @@ namespace processor {
         }
 
         std::vector<int> error_codes;
-        // attempt to stop owned components; swallow exceptions
-        try {
-            if (socket_client_) {
-                socket_client_->stop();
-            }
-        } catch (...) {
-            std::cerr << "FATAL::failed to stop SocketClient\n";
-            error_codes.emplace_back(-1);
-        }
-
         try {
             if (book_builder_) {
                 book_builder_->stop();

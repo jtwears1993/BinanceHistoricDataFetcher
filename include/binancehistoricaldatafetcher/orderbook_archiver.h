@@ -17,17 +17,14 @@ namespace processor {
         // make the running flag static so a static signal handler can modify it
         static std::atomic<bool> is_running_;
         std::unique_ptr<BinanceFuturesBookBuilder> book_builder_;
-        std::unique_ptr<downloader::BinanceFuturesOrderbookSnapshotsSocketClient> socket_client_;
         std::unique_ptr<writer::QuestDBWriter> quest_db_writer_;
         std::thread writer_thread_;
     public:
         OrderbookArchiver(
             std::unique_ptr<BinanceFuturesBookBuilder> book_builder,
-            std::unique_ptr<downloader::BinanceFuturesOrderbookSnapshotsSocketClient> socket_client,
             std::unique_ptr<writer::QuestDBWriter> quest_db_writer
         ) :
         book_builder_(std::move(book_builder)),
-        socket_client_(std::move(socket_client)),
         quest_db_writer_(std::move(quest_db_writer)) {}
         ~OrderbookArchiver() noexcept;
 

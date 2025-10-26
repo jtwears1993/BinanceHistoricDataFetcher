@@ -51,7 +51,7 @@ models::BinanceFuturesOnOpenSocketMessage build_on_open_message(const std::vecto
 struct config {
     std::string websocket_url;
     std::vector<std::string> symbols;
-    size_t depth;
+    size_t depth{};
     std::string questdb_url;
     models::BinanceFuturesOnOpenSocketMessage socket_open_msg;
 };
@@ -127,7 +127,6 @@ int main(const int argc, char** argv) {
     );
     const auto archiver = std::make_unique<processor::OrderbookArchiver>(
         std::move(book_builder),
-        std::move(socket_client),
         std::move(questdb_writer)
     );
     archiver->start();
