@@ -54,5 +54,21 @@ namespace common::network::sockets {
         auto set_recv_callback(const std::function<void(MulticastServer *s)> &callback) -> void {
             recv_callback_ = callback;
         }
+
+        auto increment_recv_next_valid_index() -> size_t {
+            return recv_next_valid_index_++;
+        }
+
+        auto current_recv_next_valid_index() const -> size_t {
+            return recv_next_valid_index_;
+        }
+
+        auto increment_send_next_valid_index() -> size_t {
+            return send_next_valid_index_++;
+        }
+
+        auto current_send_next_valid_index() const -> size_t {
+            return send_next_valid_index_;
+        }
     };
 }
