@@ -111,7 +111,7 @@ namespace models {
             asks_.emplace(price, PriceLevel{price, volume});
         }
 
-        int remove(const double price, const bool is_bid) {
+        int remove(const int32_t price, const bool is_bid) {
 
             if (!is_valid_price(price)) {
                 return -2; // Invalid price

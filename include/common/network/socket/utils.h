@@ -7,8 +7,6 @@
 #include <cstring>
 #include <iostream>
 #include <string>
-#include <sstream>
-#include <sys/epoll.h>
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -20,6 +18,8 @@
 #include <fcntl.h>
 
 namespace common::network::sockets {
+
+    constexpr auto MulticastLocalHostIP = "127.0.0.1";
 
     enum class SocketType {
         UDP,
@@ -73,12 +73,12 @@ namespace common::network::sockets {
     }
 
     auto inline disable_nagle_algorithm(const int socket_fd) -> bool {
-        int one = 1;
+        constexpr int one = 1;
         return (setsockopt(socket_fd, IPPROTO_TCP, TCP_NODELAY, &one, sizeof(one)) != -1);
     }
 
     auto inline set_so_timestamp(const int socket_fd) -> bool {
-        int one = 1;
+        constexpr int one = 1;
         return (setsockopt(socket_fd, SOL_SOCKET, SO_TIMESTAMP, &one, sizeof(one)) != -1);
     }
 
@@ -90,7 +90,7 @@ namespace common::network::sockets {
     [[nodiscard]] auto inline create_udp_socket(const SocketConfig &config) -> int {
         int sockfd = -1;
         const auto ip = get_interface_ip(config.interface);
-        std::cerr << "INFO::create_udp_socket Creating UDP socket at " << ip << ":" << config.port << " with config: " << config.to_string() << "\n";
+        std::cout << "INFO::create_udp_socket Creating UDP socket at " << ip << ":" << config.port << " with config: " << config.to_string() << "\n";
 
         constexpr addrinfo hints{
             .ai_flags = AI_PASSIVE,
@@ -110,12 +110,11 @@ namespace common::network::sockets {
                 continue;
             }
 
-            if (config.is_listening) {
-                // Increase recv buffer for multicast heavy loads
-                if (setsockopt(fd, SOL_SOCKET, SO_RCVBUF, &MulticastBufferSize, sizeof(MulticastBufferSize)) == -1) {
-                    std::cerr << "WARN::create_udp_socket setsockopt(SO_RCVBUF) failed: " << std::strerror(errno) << "\n";
-                }
+            if (setsockopt(fd, SOL_SOCKET, SO_RCVBUF, &MulticastBufferSize, sizeof(MulticastBufferSize)) == -1) {
+                std::cerr << "WARN::create_udp_socket setsockopt(SO_RCVBUF) failed: " << std::strerror(errno) << "\n";
+            }
 
+            if (config.is_listening) {
                 if (bind(fd, p->ai_addr, p->ai_addrlen) == -1) {
                     close(sockfd);
                     continue;
@@ -140,6 +139,31 @@ namespace common::network::sockets {
         return sockfd;
     }
 
+    [[nodiscard]] auto inline configure_multicast_lo_sender(const int socket_fd) -> bool {
+        // 1. set TTL
+        // 2. set multicast interface - explicitly set loopback interface
+        constexpr int ttl = 1;
+        if (setsockopt(socket_fd, IPPROTO_IP, IP_MULTICAST_TTL, &ttl, sizeof(ttl)) == -1) {
+            std::cerr << "ERROR::configure_multicast_lo_sender setsockopt(IP_MULTICAST_TTL) failed: " << std::strerror(errno) << "\n";
+            return false;
+        }
+
+        in_addr loopback_interface{};
+        loopback_interface.s_addr = inet_addr(MulticastLocalHostIP);
+        if (setsockopt(socket_fd, IPPROTO_IP, IP_MULTICAST_IF,
+                       (const char*)&loopback_interface, sizeof(loopback_interface)) < 0) {
+            std::cerr << "ERROR::configure_multicast_loopback_sender setsockopt(IP_MULTICAST_IF) failed: " << std::strerror(errno) << "\n";
+            return false;
+        }
+        constexpr char loop = 1;
+        if (setsockopt(socket_fd, IPPROTO_IP, IP_MULTICAST_LOOP, &loop, sizeof(loop)) < 0) {
+            std::cerr << "WARN::configure_multicast_loopback_sender setsockopt(IP_MULTICAST_LOOP) failed: " << std::strerror(errno) << "\n";
+            // Not critical, continue
+        }
+        std::cerr << "INFO::configure_multicast_loopback_sender Multicast sender successfully configured for 127.0.0.1\n";
+        return true;
+    }
+
     [[nodiscard]] auto inline create_tcp_socket(const SocketConfig &config) -> int {
         std::cerr << "ERROR::create_tcp_socket not implemented yet." << std::endl;
         return -1;
@@ -154,8 +178,17 @@ namespace common::network::sockets {
         switch (config.type) {
             case SocketType::TCP:
                 return create_tcp_socket(config);
-            case SocketType::UDP:
-                return create_udp_socket(config);
+            case SocketType::UDP: {
+                const int fd = create_udp_socket(config);
+                if (fd == -1) {
+                    return fd;
+                }
+                if (const bool res = configure_multicast_lo_sender(fd); !res) {
+                    close(fd);
+                    return -1;
+                }
+                return fd;
+            }
             case SocketType::UNIX:
                 return create_unix_socket(config);
         }

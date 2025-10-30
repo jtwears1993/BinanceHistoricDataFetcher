@@ -55,6 +55,19 @@ namespace models {
         settings::Product product_type;
     };
 
+    inline void to_json(nlohmann::json &j, const Trade &t) {
+        j = {
+            {"id", t.id},
+            {"price", t.price},
+            {"qty", t.qty},
+            {"quote_qty", t.quote_qty},
+            {"time", t.time},
+            {"side", sideToString(t.side)},
+            {"symbol", t.symbol},
+            {"product_type", t.product_type}
+        };
+    }
+
 
     struct Candle {
         int64_t open_time;
@@ -69,6 +82,8 @@ namespace models {
         settings::CandleFrequency frequency;
     };
 
+    inline void to_json(nlohmann::json &j, const Candle &c) {}
+
     struct PriceLevel {
         std::int32_t price;
         std::int32_t quantity;
@@ -81,6 +96,13 @@ namespace models {
         } else {
             throw std::runtime_error("Invalid PriceLevel JSON format");
         }
+    }
+
+    inline void to_json(nlohmann::json &j, const PriceLevel &p) {
+        j = {
+            "price", p.price,
+            "quantity", p.quantity
+        };
     }
 
     struct BinanceFuturesOrderbookSnapshot {
@@ -150,11 +172,36 @@ namespace models {
         std::vector<PriceLevel> asks;
     };
 
+    inline void to_json(nlohmann::json &j, const OrderbookSnapshot &snapshot) {
+        j = {
+            {"snapshot_time", snapshot.snapshot_time},
+            {"symbol", snapshot.symbol},
+            {"product_type", snapshot.product_type},
+            {"bids", snapshot.bids},
+            {"asks", snapshot.asks}
+        };
+    }
+
     struct DataEvent {
         std::optional<Trade> futures_trade;
         std::optional<Candle> candle;
         std::optional<OrderbookSnapshot > orderbook_snapshot;
     };
+
+    inline void to_json(nlohmann::json &j, const DataEvent &event) {
+
+        if (event.orderbook_snapshot.has_value()) {
+            j["snapshot"] = event.orderbook_snapshot.value();
+        }
+
+        if (event.futures_trade.has_value()) {
+            j["futures_trade"] = event.futures_trade.value();
+        }
+
+        if (event.candle.has_value()) {
+            j["candle"] = event.candle.value();
+        }
+    }
 
     struct BinanceFuturesOnOpenSocketMessage {
         std::string method;

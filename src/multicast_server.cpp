@@ -25,7 +25,17 @@ namespace common::network::sockets {
 
         // Publish market data in the send buffer to the multicast stream.
         if (send_next_valid_index_ > 0) {
-            ::send(socket_fd_, send_buffer_.data(), send_next_valid_index_, MSG_DONTWAIT | MSG_NOSIGNAL);
+            sockaddr_in addr = {};
+            addr.sin_family = AF_INET;
+            addr.sin_port = htons(config_.port);
+            addr.sin_addr.s_addr = inet_addr(config_.ip.c_str());
+            unsigned int addrlen = sizeof(addr);
+            ::sendto(socket_fd_,
+                   send_buffer_.data(),
+                   send_next_valid_index_,
+                   0,
+                   reinterpret_cast<sockaddr *>(&addr),
+                   addrlen);
         }
         send_next_valid_index_ = 0;
         return (n_rcv > 0);

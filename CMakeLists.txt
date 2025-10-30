@@ -48,6 +48,8 @@ add_library(
         src/orderbook_archiver.cpp
         src/binance_futures_book_builder.cpp
         src/binance_futures_order_book_snapshot_socket_client.cpp
+        src/market_data_publisher.cpp
+        src/multicast_server.cpp
 )
 
 # Set common include directories for the shared logic
@@ -95,6 +97,25 @@ add_executable(
 # Link the continuous app to the shared logic and dependencies
 target_link_libraries(
         binance_archiver_app
+        binance_shared_logic
+        questdb_client
+        cpr::cpr
+        elzip
+        nlohmann_json::nlohmann_json
+        Boost::system
+        Boost::thread
+        OpenSSL::SSL
+        OpenSSL::Crypto
+)
+
+# --- 4. Add executable for LIVE server (order book snapshots) ---
+add_executable(
+        binance_live_server_app   # Unique name for the live server executable
+        app/live/main.cpp
+)
+
+target_link_libraries(
+        binance_live_server_app
         binance_shared_logic
         questdb_client
         cpr::cpr

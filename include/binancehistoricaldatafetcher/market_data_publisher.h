@@ -48,8 +48,8 @@ namespace processor {
 
         void run() noexcept;
 
-        bool is_running() const {
-            return is_running_.load();
+        static std::atomic<bool>& is_running() {
+            return is_running_;
         }
 
         static void handle_signals(int signum);
