@@ -2,26 +2,25 @@
 // Created by jtwears on 9/27/25.
 //
 
-#ifndef BINANCEHISTORICDATAFETCHER_ORDERBOOK_H
-#define BINANCEHISTORICDATAFETCHER_ORDERBOOK_H
+#pragma once
 
 #include <map>
 #include <memory_resource>
 #include <ranges>
 #include <vector>
 
-#include "binance_market_data_models.h"
+#include "common/models/common_data_models.h"
 
-namespace models {
+namespace common::models {
 
     struct BidComparator {
-        bool operator()(const double a, const double b) const {
+        bool operator()(const int32_t a, const int32_t b) const {
             return a > b; // Higher prices first
         }
     };
 
     struct AskComparator {
-        bool operator()(const double a, const double b) const {
+        bool operator()(const int32_t a, const int32_t b) const {
             return a < b; // Lower prices first
         }
     };
@@ -130,9 +129,8 @@ namespace models {
         }
 
     private:
-        static bool is_valid_price(const double price) {
+        static bool is_valid_price(const uint32_t price) {
             return price > 0.0;
         }
     };
 }
-#endif //BINANCEHISTORICDATAFETCHER_ORDERBOOK_H

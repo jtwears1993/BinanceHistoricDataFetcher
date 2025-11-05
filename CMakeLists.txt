@@ -39,17 +39,17 @@ find_package(OpenSSL REQUIRED)
 # NOTE: Headers should generally NOT be listed in add_library or add_executable
 add_library(
         binance_shared_logic STATIC
-        src/file_downloader.cpp
-        src/questdb_writer.cpp
-        src/settings.cpp
-        src/processor.cpp
-        src/writer.cpp
-        src/binance_futures_orderbook.cpp
-        src/orderbook_archiver.cpp
-        src/binance_futures_book_builder.cpp
-        src/binance_futures_order_book_snapshot_socket_client.cpp
-        src/market_data_publisher.cpp
-        src/multicast_server.cpp
+        src/binance/file_downloader.cpp
+        src/common/questdb_writer.cpp
+        src/common/enums.cpp
+        src/binance/HistoricalDataProcessor.cpp
+        src/common/writer.cpp
+        src/binance/binance_futures_orderbook.cpp
+        src/binance/orderbook_archiver.cpp
+        src/binance/binance_futures_book_builder.cpp
+        src/binance/binance_futures_order_book_snapshot_socket_client.cpp
+        src/binance/market_data_publisher.cpp
+        src/common/multicast_server.cpp
 )
 
 # Set common include directories for the shared logic

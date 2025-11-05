@@ -12,23 +12,27 @@
 
 #include "binance_futures_orderbook.h"
 #include "binance_futures_orderbook_snapshots_socket_client.h"
+#include "common/models/common_data_models.h"
 
-namespace processor {
+using namespace binance::models;
+using namespace common::models;
+
+namespace binance::processor {
 
     class BinanceFuturesBookBuilder {
-        std::shared_ptr<models::BinanceFuturesOrderbook> order_books_;
+        std::shared_ptr<BinanceFuturesOrderbook> order_books_;
         std::unique_ptr<downloader::BinanceFuturesOrderbookSnapshotsSocketClient> socket_client_;
         std::atomic<bool> is_running_;
         std::vector<std::string> symbols_;
         std::vector<std::thread> builder_threads_;
         const size_t depth_;
-        moodycamel::ConcurrentQueue<models::DataEvent>& event_queue_;
+        moodycamel::ConcurrentQueue<DataEvent>& event_queue_;
 
     public:
         BinanceFuturesBookBuilder(
-            const std::shared_ptr<models::BinanceFuturesOrderbook> &order_books,
+            const std::shared_ptr<BinanceFuturesOrderbook> &order_books,
             std::unique_ptr<downloader::BinanceFuturesOrderbookSnapshotsSocketClient> socket_client,
-            moodycamel::ConcurrentQueue<models::DataEvent>& event_queue,
+            moodycamel::ConcurrentQueue<DataEvent>& event_queue,
             const size_t depth = 20) :
         order_books_(order_books),
         socket_client_(std::move(socket_client)),

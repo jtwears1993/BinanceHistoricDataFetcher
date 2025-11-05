@@ -26,7 +26,7 @@ namespace downloader {
             return;
         }
         std::cout << "INFO::BinanceFuturesOrderbookSnapshotsSocketClient::on_message Received depth update message: " << snapshot.dump() << std::endl;
-        models::BinanceFuturesSocketDepthSnapshot snapshot_data;
+        BinanceFuturesSocketDepthSnapshot snapshot_data;
         from_json(snapshot["data"], snapshot_data);
         if (const auto symbol_buffer = event_queues_.find(snapshot_data.symbol); symbol_buffer != event_queues_.end()) {
             symbol_buffer->second->enqueue(snapshot_data);
@@ -36,7 +36,7 @@ namespace downloader {
         }
     }
 
-    void BinanceFuturesOrderbookSnapshotsSocketClient::from_json(const nlohmann::json &j, models::BinanceFuturesSocketDepthSnapshot &snapshot) const {
+    void BinanceFuturesOrderbookSnapshotsSocketClient::from_json(const nlohmann::json &j, BinanceFuturesSocketDepthSnapshot &snapshot) const {
         auto order_book_symbol = j["s"].get<std::string>();
         std::ranges::transform(order_book_symbol, order_book_symbol.begin(),::tolower);
         snapshot.symbol = order_book_symbol;
@@ -46,15 +46,15 @@ namespace downloader {
         j.at("U").get_to(snapshot.first_update_id);
         j.at("u").get_to(snapshot.final_update_id);
         j.at("pu").get_to(snapshot.previous_final_update_id);
-        std::vector<models::PriceLevel> bids;
-        std::vector<models::PriceLevel> asks;
+        std::vector<PriceLevel> bids;
+        std::vector<PriceLevel> asks;
         for (const auto &bid : j["b"]) {
-            models::PriceLevel price_level{};
+            PriceLevel price_level{};
             parse_price_levels(bid, price_level, snapshot.symbol);
             bids.push_back(price_level);
         }
         for (const auto &ask : j["a"]) {
-            models::PriceLevel price_level{};
+            PriceLevel price_level{};
             parse_price_levels(ask, price_level, snapshot.symbol);
             asks.push_back(price_level);
         }
@@ -62,7 +62,7 @@ namespace downloader {
         snapshot.asks = asks;
     }
 
-    void BinanceFuturesOrderbookSnapshotsSocketClient::parse_price_levels(const nlohmann::json &j, models::PriceLevel &price_level, const std::string &symbol) const {
+    void BinanceFuturesOrderbookSnapshotsSocketClient::parse_price_levels(const nlohmann::json &j, PriceLevel &price_level, const std::string &symbol) const {
         if (j.is_array() && j.size() == 2) {
             auto [tick_size, step_size] = exchange_info_->at(symbol);
             price_level.price = common::rounding::FixedPoint::from_string(j.at(0).get<std::string>(), tick_size);

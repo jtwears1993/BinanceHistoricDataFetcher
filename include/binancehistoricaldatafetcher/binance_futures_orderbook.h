@@ -2,8 +2,7 @@
 // Created by jtwears on 9/29/25.
 //
 
-#ifndef BINANCEHISTORICDATAFETCHER_BINANCE_FUTURES_ORDERBOOK_H
-#define BINANCEHISTORICDATAFETCHER_BINANCE_FUTURES_ORDERBOOK_H
+#pragma once
 
 #include <string>
 #include <memory>
@@ -12,9 +11,11 @@
 
 #include "binancehistoricaldatafetcher/binance_orderbook.h"
 #include "binancehistoricaldatafetcher/binance_market_data_models.h"
-#include "common/rounding/fixed_point.h"
+#include "common/models/enums.h"
 
-namespace models {
+using namespace common::models::enums;
+
+namespace binance::models {
 
     constexpr auto PROD_BINANCE_FUTURES_REST_URL = "https://fapi.binance.com/fapi/v1/depth";
 
@@ -32,7 +33,7 @@ namespace models {
     public:
 
         explicit BinanceFuturesOrderbook(const std::vector<std::string> &symbols,
-            const settings::Product product,
+            const Product product,
             const std::shared_ptr<std::unordered_map<std::string, ExchangeInfo>> &exchange_info,
             const size_t depth) :
             BinanceOrderbook(symbols, product, exchange_info), depth_(depth) {
@@ -106,6 +107,4 @@ namespace models {
 
         std::optional<BinanceFuturesOrderbookSnapshot> fetch_snapshot(const std::string &symbol) const;
     };
-
 }
-#endif //BINANCEHISTORICDATAFETCHER_BINANCE_FUTURES_ORDERBOOK_H

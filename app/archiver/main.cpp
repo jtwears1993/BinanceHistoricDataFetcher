@@ -13,7 +13,12 @@
 #include "binancehistoricaldatafetcher/binance_futures_orderbook_snapshots_socket_client.h"
 #include "binancehistoricaldatafetcher/binance_market_data_models.h"
 #include "binancehistoricaldatafetcher/orderbook_archiver.h"
-#include "binancehistoricaldatafetcher/questdb_writer.h"
+#include "common/io/questdb_writer.h"
+#include "common/sync/producer_consumer.h"
+
+using namespace binance::models;
+using namespace common::models;
+using namespace common::models::enums;
 
 constexpr auto ARCHIVER_VERSION = "0.1.0";
 constexpr auto APP_NAME = "Binance Futures Market Data Archiver";
@@ -38,8 +43,8 @@ std::vector<std::string> get_symbols(std::string syms) {
     return symbols;
 }
 
-models::BinanceFuturesOnOpenSocketMessage build_on_open_message(const std::vector<std::string>& symbols) {
-    models::BinanceFuturesOnOpenSocketMessage msg;
+BinanceFuturesOnOpenSocketMessage build_on_open_message(const std::vector<std::string>& symbols) {
+    BinanceFuturesOnOpenSocketMessage msg;
     msg.method = DEFAULT_WEBSOCKET_METHOD;
     for (const auto& symbol : symbols) {
         msg.params.push_back(symbol + DEFAULT_SNAPSHOT_PARAMS_FORMAT);
@@ -53,11 +58,11 @@ struct config {
     std::vector<std::string> symbols;
     size_t depth{};
     std::string questdb_url;
-    models::BinanceFuturesOnOpenSocketMessage socket_open_msg;
+    BinanceFuturesOnOpenSocketMessage socket_open_msg;
 };
 
 config parse_command_line(int argc, char** argv) {
-    CLI::App app{APP_NAME};
+    CLI::App app{::APP_NAME};
     std::string websocket_url = DEFAULT_WEBSOCKET_URL;
     app.add_option("--websocket_url", websocket_url, "WebSocket URL for Binance Futures")->default_val(DEFAULT_WEBSOCKET_URL);
     std::string symbols_str = DEFAULT_SYMBOLS;
@@ -78,8 +83,8 @@ config parse_command_line(int argc, char** argv) {
 }
 
 auto build_exchange_info_map() {
-    std::unordered_map<std::string, models::ExchangeInfo> exchange_info;
-    models::ExchangeInfo info{};
+    std::unordered_map<std::string, ExchangeInfo> exchange_info;
+    ExchangeInfo info{};
     info.tick_size = BTCUSDT_TICK_SIZE;
     info.step_size = BTCUSDT_STEP_SIZE;
     exchange_info["btcusdt"] = info;
@@ -96,21 +101,21 @@ int archiver_factory(const config& cfg) {
 
 int main(const int argc, char** argv) {
     auto [websocket_url, symbols, depth, questdb_url, socket_open_msg] = parse_command_line(argc, argv);
-    auto exchange_info = std::make_shared<std::unordered_map<std::string, models::ExchangeInfo>>(build_exchange_info_map());
-    auto multi_symbol_orderbook = std::make_shared<models::BinanceFuturesOrderbook>(
+    auto exchange_info = std::make_shared<std::unordered_map<std::string, ExchangeInfo>>(build_exchange_info_map());
+    auto multi_symbol_orderbook = std::make_shared<BinanceFuturesOrderbook>(
         symbols,
-        settings::Product::FUTURES,
+        FUTURES,
         exchange_info,
         depth
     );
-    auto data_events_queue = moodycamel::ConcurrentQueue<models::DataEvent>();
+    auto data_events_queue = moodycamel::ConcurrentQueue<DataEvent>();
     auto socket_client = std::make_unique<downloader::BinanceFuturesOrderbookSnapshotsSocketClient>(
         websocket_url,
         socket_open_msg,
         multi_symbol_orderbook->get_queues(),
         exchange_info
     );
-    auto book_builder = std::make_unique<processor::BinanceFuturesBookBuilder>(
+    auto book_builder = std::make_unique<binance::processor::BinanceFuturesBookBuilder>(
         multi_symbol_orderbook,
         std::move(socket_client),
         data_events_queue,
@@ -119,24 +124,24 @@ int main(const int argc, char** argv) {
     auto questdb_writer = std::make_unique<writer::QuestDBWriter>(
         data_events_queue,
         questdb_url,
-        std::make_shared<processor::Context>(), // Not ideal, but close will cancel the worker loop
+        std::make_shared<common::sync::producer_consumer::Context>(), // Not ideal, but close will cancel the worker loop
         exchange_info,
         5,
         1000,
-        settings::SNAPSHOT
+        SNAPSHOT
     );
-    const auto archiver = std::make_unique<processor::OrderbookArchiver>(
+    const auto archiver = std::make_unique<binance::processor::OrderbookArchiver>(
         std::move(book_builder),
         std::move(questdb_writer)
     );
     archiver->start();
 
-    if (!archiver->runningFlag()) {
+    if (!binance::processor::OrderbookArchiver::runningFlag()) {
         std::cerr << "ERROR::Failed to start archiver\n";
         return EXIT_FAILURE;
     }
 
-    while (archiver->runningFlag()) {
+    while (binance::processor::OrderbookArchiver::runningFlag()) {
         std::cout << "INFO::Running..." << "\n";
         std::this_thread::sleep_for(seconds(1));
     }

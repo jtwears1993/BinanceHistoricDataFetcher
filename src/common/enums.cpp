@@ -4,9 +4,9 @@
 
 #include <string>
 #include <stdexcept>
-#include "binancehistoricaldatafetcher/settings.h"
+#include "common/models/enums.h"
 
-namespace settings {
+namespace common::models::enums {
     Product getProduct(const std::string &productName) {
         if (productName == "futures") {
             return FUTURES;

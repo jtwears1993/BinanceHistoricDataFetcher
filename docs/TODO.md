@@ -1,6 +1,10 @@
 # TODO
 ## COMMON:
 
+- Fix comparator for orderbook map
+- specfic type aliases for: tick_size, step_size, price and quantity (e.g., using type Price = int_32_t)
+- specific type alias for symbol string (e.g., using type Symbol = std::string)
+- look at implementing multi-symbolbook as an array or vector of orderbooks instead of map of orderbooks and use an enum for symbol index position
 - Generic get_symbols function for parsing cli arguments and config files
 - Add unix domain socket support for server-client communication
 - Create a zero copy and alloc logger for high frequency logging

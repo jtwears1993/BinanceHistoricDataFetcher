@@ -11,17 +11,18 @@
 #include "libs/concurrentqueue/concurrentqueue.h"
 #include <questdb/ingress/line_sender.hpp>
 
-#include "file_downloader.h"
+#include "binancehistoricaldatafetcher/file_downloader.h"
 #include "writer.h"
-#include "settings.h"
-#include "processor.h"
+#include "common/models/enums.h"
 #include "common/rounding/fixed_point.h"
 
 
-using namespace std;
 using namespace std::chrono;
+using namespace common::models;
+using namespace common::models::enums;
+using namespace common::io::writer;
 
-namespace processor { struct Context; }
+namespace common::sync::producer_consumer { struct Context; }
 
 namespace writer {
 
@@ -46,7 +47,7 @@ namespace writer {
         };
     }
 
-    inline tensor to_tensor(const std::vector<models::PriceLevel> &price_levels, const int tick_size, const int step_size) {
+    inline tensor to_tensor(const std::vector<PriceLevel> &price_levels, const int tick_size, const int step_size) {
         // price level is a price and a volume as a double
         // so two columns, n rows
         //  would be the number of price levels - so the length of the vector
@@ -66,28 +67,28 @@ namespace writer {
     }
 
     class QuestDBWriter final : IWriter {
-        moodycamel::ConcurrentQueue<models::DataEvent> &buffer_;
-        string dbConnectionURI;
+        moodycamel::ConcurrentQueue<DataEvent> &buffer_;
+        std::string dbConnectionURI;
         int batchSize_{};
         questdb::ingress::line_sender dbSender;
         int flushIntervalMs_;
-        const std::shared_ptr<processor::Context> context_;
+        const std::shared_ptr<common::sync::producer_consumer::Context> context_;
         std::atomic<int> eventsWritten_{0};
-        settings::DataType dataType_;
+        DataType dataType_;
         questdb::ingress::line_sender_buffer dbBuffer_;
         milliseconds flushInterval_;
-        const std::shared_ptr<std::unordered_map<std::string, models::ExchangeInfo>> exchangeInfo_;
+        const std::shared_ptr<std::unordered_map<std::string, ExchangeInfo>> exchangeInfo_;
         const common::rounding::FixedPoint rounder_{};
 
     public:
 
-        explicit QuestDBWriter(moodycamel::ConcurrentQueue<models::DataEvent> &buffer,
+        explicit QuestDBWriter(moodycamel::ConcurrentQueue<DataEvent> &buffer,
             const std::string &dbConnectionURI,
-            const std::shared_ptr<processor::Context> &context,
-            const std::shared_ptr<std::unordered_map<std::string, models::ExchangeInfo>> &exchangeInfo,
+            const std::shared_ptr<common::sync::producer_consumer::Context> &context,
+            const std::shared_ptr<std::unordered_map<std::string, ExchangeInfo>> &exchangeInfo,
             int batchSize = 1000,
             int flushIntervalMs = 1000,
-            settings::DataType dataType = settings::TRADES);
+            DataType dataType = common::models::enums::TRADES);
 
         void write() override;
 
@@ -106,8 +107,8 @@ namespace writer {
             return eventsWritten_;
         }
 
-        void writeTradeToDbBuffer(const models::Trade& trade_event);
-        void writeCandleToDbBuffer(const models::Candle& candle_event);
-        void writeOrderbookToDbBuffer(const models::OrderbookSnapshot& orderbook_event);
+        void writeTradeToDbBuffer(const Trade& trade_event);
+        void writeCandleToDbBuffer(const Candle& candle_event);
+        void writeOrderbookToDbBuffer(const OrderbookSnapshot& orderbook_event);
     };
 }

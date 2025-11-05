@@ -4,7 +4,7 @@
 
 #ifndef BINANCEHISTORICDATAFETCHER_CONSTANTS_H
 #define BINANCEHISTORICDATAFETCHER_CONSTANTS_H
-namespace settings {
+namespace binance::settings {
     constexpr auto APP_VERSION = "0.0.1";
     constexpr auto APP_NAME = "BinanceHistoricDataFetcher";
     constexpr auto APP_DESCRIPTION = "A tool to fetch and store historical data from Binance. Futures Supported Only in v0.0.1";

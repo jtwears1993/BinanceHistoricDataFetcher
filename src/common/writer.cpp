@@ -2,10 +2,10 @@
 // Created by jtwears on 9/25/25.
 //
 
-#include "binancehistoricaldatafetcher/writer.h"
+#include "../../include/common/io/writer.h"
 
 
-namespace writer {
+namespace common::io::writer {
     void IWriter::write() {
         // Default implementation (can be overridden by derived classes)
     }

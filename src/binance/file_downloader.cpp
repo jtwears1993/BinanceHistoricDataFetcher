@@ -14,20 +14,17 @@
 #include <elzip/elzip.hpp>
 
 #include "binancehistoricaldatafetcher/file_downloader.h"
-#include "binancehistoricaldatafetcher/processor.h"
-#include "binancehistoricaldatafetcher/settings.h"
+#include "binancehistoricaldatafetcher/HistoricalDataProcessor.h"
 #include "binancehistoricaldatafetcher/binance_market_data_models.h"
-
-using namespace std;
 
 namespace downloader {
 
     FileDownloader::FileDownloader(
-        const settings::DataType dataType,
-        const settings::Product productType,
-        const settings::DownloadType downloadType,
-        moodycamel::ConcurrentQueue<models::DataEvent> &queue,
-        std::shared_ptr<processor::Context> &context) :
+        const DataType dataType,
+        const Product productType,
+        const DownloadType downloadType,
+        moodycamel::ConcurrentQueue<DataEvent> &queue,
+        std::shared_ptr<Context> &context) :
         queue_(queue),
         context_(context),
         tmp_dir_(std::filesystem::temp_directory_path()),
@@ -53,9 +50,9 @@ namespace downloader {
             for (const std::vector<std::string> urls = createUrls(symbol, start_date, end_date); const auto &url : urls) {
                 if (downloadFile(url)) {
                     if (unzipFile()) {
-                        if (data_type_ == settings::DataType::TRADES) {
+                        if (data_type_ == TRADES) {
                             readFuturesTradeFile(url, symbol);
-                        } else if (data_type_ == settings::DataType::OHLCV) {
+                        } else if (data_type_ == OHLCV) {
                             readCandleFile(url, symbol);
                         } else {
                             deleteFile();
@@ -126,7 +123,7 @@ namespace downloader {
             std::istringstream ss(line);
             try {
                 std::string token;
-                models::Trade trade;
+                Trade trade;
                 // id
                 std::getline(ss, token, ',');
                 trade.id = std::stoll(token);
@@ -145,11 +142,11 @@ namespace downloader {
                 // isBuyerMaker == to Side
                 std::getline(ss, token, ',');
                 const bool is_buyer_maker = (token == "true");
-                trade.side = models::getTradeSide(is_buyer_maker);
+                trade.side = getTradeSide(is_buyer_maker);
                 trade.symbol =  symbol;
                 trade.product_type = product_type_;
 
-                models::DataEvent event;
+                DataEvent event;
                 event.futures_trade = trade;
                 queue_.enqueue(event);
             } catch (const std::exception &e) {
@@ -181,7 +178,7 @@ namespace downloader {
             std::istringstream ss(line);
             try {
                 std::string token;
-                models::Candle candle;
+                Candle candle;
                 // open_time
                 std::getline(ss, token, ',');
                 candle.open_time = std::stoll(token);
@@ -206,9 +203,12 @@ namespace downloader {
 
                 candle.symbol = symbol;
                 candle.product_type = product_type_;
-                candle.frequency = settings::getCandleFrequency(settings::getCandleFrequencyName(download_type_ == settings::MONTHLY ? settings::ONE_MONTH : settings::ONE_DAY));
+                candle.frequency = getCandleFrequency(getCandleFrequencyName(
+                        download_type_ == MONTHLY ? ONE_MONTH : ONE_DAY
+                    )
+                );
 
-                models::DataEvent event;
+                DataEvent event;
                 event.candle = candle;
                 queue_.enqueue(event);
             } catch (const std::exception &e) {
@@ -242,16 +242,20 @@ namespace downloader {
             const auto end_date_sys = std::chrono::sys_days(end_date_ymd);
 
 
-            const std::string base_url = models::getFuturesUrl(symbol, settings::getDownloadTypeName(download_type_), settings::getDataTypeName(data_type_));
+            const std::string base_url = binance::models::getFuturesUrl(
+                symbol,
+                getDownloadTypeName(download_type_),
+                getDataTypeName(data_type_)
+            );
 
             while (current_date_sys < end_date_sys) {
                 std::chrono::year_month_day current_ymd(current_date_sys);
                 std::string formatted_date;
                 std::string formatted_url;
 
-                if (download_type_ == settings::MONTHLY) {
+                if (download_type_ == MONTHLY) {
                     formatted_date = std::format("%Y-%m", current_ymd);
-                    formatted_url = base_url + models::getFileName(symbol, formatted_date, settings::getDataTypeName(data_type_));
+                    formatted_url = base_url + binance::models::getFileName(symbol, formatted_date, getDataTypeName(data_type_));
 
                     auto year = current_ymd.year();
                     auto month =  current_ymd.month();
@@ -265,9 +269,9 @@ namespace downloader {
                     auto next_month = year / month / std::chrono::day{1};
                     current_date_sys = std::chrono::sys_days(next_month);
 
-                } else if (download_type_ == settings::DAILY) {
+                } else if (download_type_ == DAILY) {
                     formatted_date = std::format("%Y-%m-%d", current_ymd);
-                    formatted_url = base_url + models::getFileName(symbol, formatted_date, settings::getDataTypeName(data_type_));
+                    formatted_url = base_url + binance::models::getFileName(symbol, formatted_date, getDataTypeName(data_type_));
                     current_date_sys += std::chrono::days(1);
                 }
                 urls.push_back(formatted_url);

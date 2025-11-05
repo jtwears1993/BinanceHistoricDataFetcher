@@ -14,7 +14,7 @@
 #include "cpr/cprtypes.h"
 #include "cpr/parameters.h"
 
-namespace models {
+namespace binance::models {
 
     void BinanceFuturesOrderbook::init(const std::vector<std::string>& symbols) {
         std::vector<std::thread> threads;

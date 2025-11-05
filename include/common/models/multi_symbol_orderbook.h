@@ -2,15 +2,14 @@
 // Created by jtwears on 9/27/25.
 //
 
-#ifndef BINANCEHISTORICDATAFETCHER_ORDERBOOK_MANAGER_H
-#define BINANCEHISTORICDATAFETCHER_ORDERBOOK_MANAGER_H
+#pragma once
 
 #include <map>
 #include <string>
 
 #include "orderbook.h"
 
-namespace models {
+namespace common::models {
     class MultiSymbolOrderbook {
         std::map<std::string, Orderbook> multi_symbol_orderbook_;
 
@@ -42,7 +41,7 @@ namespace models {
             return book->get_levels(depth);
         }
 
-        bool has_book(const std::string &symbol) const {
+        [[nodiscard]] bool has_book(const std::string &symbol) const {
             const auto exists = multi_symbol_orderbook_.find(symbol);
             return exists != multi_symbol_orderbook_.end();
         }
@@ -89,4 +88,3 @@ namespace models {
         }
     };
 }
-#endif //BINANCEHISTORICDATAFETCHER_ORDERBOOK_MANAGER_H

@@ -45,7 +45,7 @@ namespace common::network::sockets {
             }
         }
 
-        auto join(const std::string &ip) const -> bool;
+        [[nodiscard]] auto join(const std::string &ip) const -> bool;
 
         auto send_and_receive() noexcept -> bool;
 
@@ -59,7 +59,7 @@ namespace common::network::sockets {
             return recv_next_valid_index_++;
         }
 
-        auto current_recv_next_valid_index() const -> size_t {
+        [[nodiscard]] auto current_recv_next_valid_index() const -> size_t {
             return recv_next_valid_index_;
         }
 
@@ -67,7 +67,7 @@ namespace common::network::sockets {
             return send_next_valid_index_++;
         }
 
-        auto current_send_next_valid_index() const -> size_t {
+        [[nodiscard]] auto current_send_next_valid_index() const -> size_t {
             return send_next_valid_index_;
         }
     };

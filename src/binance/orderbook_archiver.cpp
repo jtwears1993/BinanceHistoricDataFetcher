@@ -9,7 +9,7 @@
 #include <thread>
 #include "binancehistoricaldatafetcher/orderbook_archiver.h"
 
-namespace processor {
+namespace binance::processor {
 
     // define the static member
     std::atomic<bool> OrderbookArchiver::is_running_{false};

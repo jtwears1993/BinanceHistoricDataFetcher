@@ -11,7 +11,7 @@
 #include "binancehistoricaldatafetcher/binance_futures_book_builder.h"
 #include "binancehistoricaldatafetcher/binance_futures_orderbook_snapshots_socket_client.h"
 
-namespace processor {
+namespace binance::processor {
 
     using json = nlohmann::json;
 
@@ -42,9 +42,9 @@ namespace processor {
     // publish a bulk message to the queue
     // DataEvent
     void BinanceFuturesBookBuilder::get_snapshots() const {
-        std::vector<models::DataEvent> snapshots;
+        std::vector<DataEvent> snapshots;
         for (const auto &symbol : symbols_) {
-            models::DataEvent event;
+            DataEvent event;
             auto snapshot = order_books_->get_snapshot(symbol, depth_);
             event.orderbook_snapshot = snapshot;
             snapshots.emplace_back(event);
@@ -67,7 +67,7 @@ namespace processor {
                     break;
                 }
                 // publish update event
-                models::DataEvent event;
+                DataEvent event;
                 event.orderbook_snapshot = order_books_->get_snapshot(symbol, depth_);
                 event_queue_.enqueue(event);
                 std::cout << "INFO::BinanceFuturesBookBuilder::build_book Published update for symbol: " << symbol << "\n";

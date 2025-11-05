@@ -11,7 +11,7 @@
 
 using json = nlohmann::json;
 
-namespace processor {
+namespace binance::processor {
 
     std::atomic<bool> MarketDataPublisher::is_running_{false};
 
@@ -56,7 +56,7 @@ namespace processor {
         std::cerr << "SENT DEBUG PACKET!\n";
 
         while (is_running_.load()) {
-            if (models::DataEvent data_event; data_event_queue_.try_dequeue(data_event)) {
+            if (DataEvent data_event; data_event_queue_.try_dequeue(data_event)) {
                 try {
                     updates_socket_->send(&sequence_id_, sizeof(sequence_id_));
                     json j = data_event;

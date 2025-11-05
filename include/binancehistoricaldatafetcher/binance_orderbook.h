@@ -7,22 +7,24 @@
 #include <string>
 #include <vector>
 
-#include "binancehistoricaldatafetcher/binance_market_data_models.h"
-#include "binancehistoricaldatafetcher/multi_symbol_orderbook.h"
-#include "binancehistoricaldatafetcher/settings.h"
+#include "common/models/multi_symbol_orderbook.h"
+#include "common/models/enums.h"
 
-namespace models {
+using namespace common::models;
+using namespace common::models::enums;
+
+namespace binance::models {
     template<typename UpdateMsg>
     class BinanceOrderbook  {
     protected:
         MultiSymbolOrderbook multi_symbol_orderbook_;
         const std::vector<std::string> symbols_;
-        const settings::Product product_;
+        const Product product_;
         std::shared_ptr<std::unordered_map<std::string, ExchangeInfo>> exchange_info_;
 
     public:
         explicit BinanceOrderbook(const std::vector<std::string>& symbols,
-            const settings::Product product,
+            const Product product,
             const std::shared_ptr<std::unordered_map<std::string, ExchangeInfo>> &exchange_info) :
             multi_symbol_orderbook_(symbols), symbols_(symbols), product_(product),
             exchange_info_(exchange_info) {};

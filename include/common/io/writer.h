@@ -5,7 +5,7 @@
 # pragma once
 
 
-namespace writer {
+namespace common::io::writer {
     class IWriter {
     public:
         virtual ~IWriter() = default;

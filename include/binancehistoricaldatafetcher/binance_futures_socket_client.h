@@ -19,6 +19,8 @@
 
 #include "binancehistoricaldatafetcher/binance_market_data_models.h"
 
+using namespace binance::models;
+
 namespace downloader {
 
 
@@ -52,14 +54,14 @@ namespace downloader {
         client c_;
         websocketpp::connection_hdl hdl_;
         std::unique_ptr<std::thread> worker_thread_;
-        models::BinanceFuturesOnOpenSocketMessage socket_open_msg_;
+        BinanceFuturesOnOpenSocketMessage socket_open_msg_;
         std::unordered_map<std::string, std::shared_ptr<moodycamel::ConcurrentQueue<SocketEvent>>> event_queues_;
         std::atomic<bool> should_reconnect_{true};
         std::atomic<bool> is_reconnecting_{false};
 
     public:
         explicit BinanceFuturesSocketClient(std::string uri,
-            const models::BinanceFuturesOnOpenSocketMessage &open_msg,
+            const BinanceFuturesOnOpenSocketMessage &open_msg,
             std::unordered_map<std::string, std::shared_ptr<moodycamel::ConcurrentQueue<SocketEvent>>> events_queue) :
         uri_(std::move(uri)),
         socket_open_msg_(open_msg),

@@ -9,10 +9,9 @@
 #include <thread>
 #include "binancehistoricaldatafetcher/binance_futures_book_builder.h"
 #include "binancehistoricaldatafetcher/binance_futures_orderbook_snapshots_socket_client.h"
-#include "binancehistoricaldatafetcher/questdb_writer.h"
+#include "common/io/questdb_writer.h"
 
-
-namespace processor {
+namespace binance::processor {
     class OrderbookArchiver {
         // make the running flag static so a static signal handler can modify it
         static std::atomic<bool> is_running_;

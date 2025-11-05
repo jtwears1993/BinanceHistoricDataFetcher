@@ -11,35 +11,34 @@
 #include <chrono>
 
 #include "binance_market_data_models.h"
-#include "../include/libs/concurrentqueue/concurrentqueue.h"
+#include "concurrentqueue/concurrentqueue.h"
 
-#include "settings.h"
-#include "constants.h"
+#include "common/models/enums.h"
 
-using namespace std;
+using namespace common::models;
+using namespace common::models::enums;
 
 // forward declare to prevent circular import
-namespace processor { struct Context; }
+namespace common::sync::producer_consumer { struct Context; }
 
 namespace downloader {
 
-
     class FileDownloader {
-        moodycamel::ConcurrentQueue<models::DataEvent> &queue_;
-        std::shared_ptr<processor::Context> &context_;
+        moodycamel::ConcurrentQueue<DataEvent> &queue_;
+        std::shared_ptr<common::sync::producer_consumer::Context> &context_;
         std::filesystem::path tmp_dir_;
         std::filesystem::path tmp_dir_file_ ;
-        const settings::DataType data_type_;
-        const settings::Product product_type_;
-        const settings::DownloadType download_type_;
+        const DataType data_type_;
+        const Product product_type_;
+        const DownloadType download_type_;
 
     public:
         FileDownloader(
-            settings::DataType dataType,
-            settings::Product productType,
-            settings::DownloadType downloadType,
-            moodycamel::ConcurrentQueue<models::DataEvent> &queue,
-            std::shared_ptr<processor::Context> &context);
+            DataType dataType,
+            Product productType,
+            DownloadType downloadType,
+            moodycamel::ConcurrentQueue<DataEvent> &queue,
+            std::shared_ptr<common::sync::producer_consumer::Context> &context);
         ~FileDownloader();
         void download(const std::vector<std::string> &symbol, const std::string &start_date, const std::string &end_date) const;
 
