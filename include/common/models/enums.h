@@ -75,4 +75,13 @@ namespace common::models::enums {
     inline Side getTradeSide(const bool isBuyerMaker) {
         return isBuyerMaker ? BUY : SELL;
     }
+
+    enum Exchange {
+        UNDEFINED,
+        BINANCE_FUTURES,
+        BYBIT,
+        OKX,
+        GEMINI,
+        COINBASE_DERIVATIVES,
+    };
 }

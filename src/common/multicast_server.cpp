@@ -30,12 +30,13 @@ namespace common::network::sockets {
             addr.sin_port = htons(config_.port);
             addr.sin_addr.s_addr = inet_addr(config_.ip.c_str());
             unsigned int addrlen = sizeof(addr);
-            ::sendto(socket_fd_,
+            const auto res = ::sendto(socket_fd_,
                    send_buffer_.data(),
                    send_next_valid_index_,
                    0,
                    reinterpret_cast<sockaddr *>(&addr),
                    addrlen);
+            std::cout << "INFO::MarketDataPublisher::send_and_receive: " << res << '\n';
         }
         send_next_valid_index_ = 0;
         return (n_rcv > 0);

@@ -26,39 +26,142 @@ The client application must implement a routine to correctly slice the raw datag
 
 Assuming **Network Byte Order (Big-Endian)**:
 
-```pseudocode
-FUNCTION process_datagram(raw_datagram):
-    HEADER_SIZE = 12  // 8 bytes for Seq ID + 4 bytes for Length
-    HEADER_FORMAT = "!QI" // Big-Endian, Unsigned Long Long (size_t), Unsigned Int (uint32_t)
+```python
+# Final, robust standard configuration for Linux receiver: Global binding + INADDR_ANY Join.
 
-    // --- Step 1: Unpack Headers (First 12 bytes) ---
-    raw_header = raw_datagram[0 : HEADER_SIZE]
-    (sequence_id, payload_length) = UNPACK(HEADER_FORMAT, raw_header)
+import socket
+import struct
+import sys
+import time
+import json
 
-    // --- Step 2: Extract JSON Payload ---
-    json_start_index = HEADER_SIZE
-    json_end_index = json_start_index + payload_length
+# --- Configuration ---
+MULTICAST_GROUP = '233.252.14.1'
+MULTICAST_PORT = 20000
+# CRITICAL: Standard receiver bind: Listen on all interfaces.
+BIND_ADDRESS = '0.0.0.0'
+HEADER_SIZE_IN_BYTES = 7
+FOOTER_SIZE_IN_BYTES = 3
 
-    // Extract the exact number of bytes specified by payload_length
-    raw_json_payload = raw_datagram[json_start_index : json_end_index]
+# We no longer explicitly refer to 127.0.0.1 here for the join structure,
+# relying on INADDR_ANY (0) which is sometimes necessary to fix this issue.
 
-    // --- Step 3: Decode and Parse ---
-    IF LENGTH(raw_json_payload) == payload_length:
-        json_string = DECODE_UTF8(raw_json_payload)
-        data_event = PARSE_JSON(json_string)
-        
-        // --- Step 4: Process ---
-        PROCESS_DATA_EVENT(sequence_id, data_event)
-    ELSE:
-        LOG_ERROR("Datagram truncated: Payload size mismatch.")
+def setup_multicast_socket():
+    """Sets up the multicast UDP socket for receiving market data."""
+    try:
+        # Create a UDP socket
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
 
-FUNCTION PROCESS_DATA_EVENT(sequence_id, data_event):
-    IF "snapshot" IN data_event:
-        HANDLE_SNAPSHOT(data_event["snapshot"])
-    ELSE IF "futures_trade" IN data_event:
-        HANDLE_TRADE(data_event["futures_trade"])
-    ELSE IF "candle" IN data_event:
-        HANDLE_CANDLE(data_event["candle"])
+        # Allow reuse of the address/port (essential for multicast)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+
+        # Bind the socket to the general interface IP and the port
+        print(f"INFO: Binding socket to {BIND_ADDRESS}:{MULTICAST_PORT}")
+        sock.bind((BIND_ADDRESS, MULTICAST_PORT))
+
+        # --- Multicast Group Join (The Ultimate Tweak) ---
+        loopback_ip = socket.inet_aton('127.0.0.1')
+        mreq = struct.pack('4s4s', socket.inet_aton(MULTICAST_GROUP), loopback_ip)
+        # Set the socket option to join the group
+        sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq)
+
+        print(f"SUCCESS: Joined multicast group {MULTICAST_GROUP} on all interfaces (using INADDR_ANY).")
+        return sock
+
+    except OSError as e:
+        print(f"Error setting up socket: {e}")
+        print("HINT: If you see 'Address already in use', ensure SO_REUSEADDR is set on the C++ sender too!")
+        sys.exit(1)
+    except Exception as e:
+        print(f"An unexpected error occurred during setup: {e}")
+        sys.exit(1)
+
+def calculate_diffs(
+    last_bids: list[list[str, int, str, int]],
+    current_snapshot: list[list[str, int, str, int]],
+) -> list[dict]:
+    deltas = []
+
+    # Convert to dict by price for easier diffing
+    old_map = {bid[1]: bid[3] for bid in last_bids}
+    new_map = {bid[1]: bid[3] for bid in current_snapshot}
+
+    all_prices = sorted(set(old_map.keys()) | set(new_map.keys()), reverse=True)
+
+    for level, price in enumerate(all_prices):
+        old_qty = old_map.get(price)
+        new_qty = new_map.get(price)
+
+        if old_qty is None:
+            # New level added
+            deltas.append({
+                "action": "add",
+                "price": price,
+                "new_qty": new_qty,
+                "level": level,
+            })
+        elif new_qty is None:
+            # Level removed
+            deltas.append({
+                "action": "delete",
+                "price": price,
+                "old_qty": old_qty,
+                "level": level,
+            })
+        elif old_qty != new_qty:
+            # Quantity changed
+            deltas.append({
+                "action": "update",
+                "price": price,
+                "old_qty": old_qty,
+                "new_qty": new_qty,
+                "level": level,
+            })
+
+    return deltas
+
+
+
+def main():
+    sock = setup_multicast_socket()
+
+    print("Listening for market data...")
+    print("-" * 30)
+    last_message = {
+        "bids": [],
+        "asks": []
+    }
+    try:
+        while True:
+            # Receive data (max 4096 bytes)
+            data, address = sock.recvfrom(4096)
+            # Timestamp the reception
+            current_time_ms = int(time.time() * 1000)
+            message = data.decode('utf-8', errors='ignore')
+            message_start = message.find("{")
+            json_string = message[message_start : ]
+            parsed_msg = json.loads(json_string)
+
+            # skip first iteration
+            if (len(last_message["bids"]) > 0) and (len(last_message["asks"]) > 0):
+                diffs_bids = calculate_diffs(last_message["bids"], parsed_msg["payload"]["snapshot"]["bids"])
+                print(f"[{current_time_ms}] RECV from {address}. DIFFS BIDS: {diffs_bids}")
+                diffs_asks = calculate_diffs(last_message["asks"], parsed_msg["payload"]["snapshot"]["asks"])
+                print(f"[{current_time_ms}] RECV from {address}. DIFFS ASKS: {diffs_asks}")
+            last_message["asks"] = parsed_msg["payload"]["snapshot"]["asks"]
+            last_message["bids"] = parsed_msg["payload"]["snapshot"]["bids"]
+    except KeyboardInterrupt:
+        print("\nReceiver stopped by user.")
+    except Exception as e:
+        print(f"Error during reception loop: {e}")
+    finally:
+        sock.close()
+        print("Socket closed.")
+
+
+if __name__ == '__main__':
+    main()
+
 ```
 
 -----

@@ -50,20 +50,15 @@ namespace binance::processor {
             return;
         }
 
-        constexpr auto debug_msg = "C++ SENDER IS ALIVE";
-        updates_socket_->send(debug_msg, strlen(debug_msg));
-        updates_socket_->send_and_receive();
-        std::cerr << "SENT DEBUG PACKET!\n";
-
         while (is_running_.load()) {
             if (DataEvent data_event; data_event_queue_.try_dequeue(data_event)) {
                 try {
-                    updates_socket_->send(&sequence_id_, sizeof(sequence_id_));
-                    json j = data_event;
+                    json j = {
+                        {"sequence_id", sequence_id_.load()},
+                        {"payload", data_event}
+                    };
                     std::string j_str = j.dump();
-                    uint32_t payload_size = j_str.length();
                     updates_socket_->send(j_str.data(), j_str.size());
-                    updates_socket_->send(&payload_size, sizeof(payload_size));
                     updates_socket_->send_and_receive();
                     ++sequence_id_;
                     std::cout << "INFO::MarketDataPublisher::run published sequence_id: " << sequence_id_ - 1 << '\n';

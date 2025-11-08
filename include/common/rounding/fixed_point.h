@@ -5,7 +5,6 @@
 #ifndef BINANCEHISTORICDATAFETCHER_FIXED_POINT_H
 #define BINANCEHISTORICDATAFETCHER_FIXED_POINT_H
 #include <cmath>
-#include <cstdint>
 #include <string>
 
 namespace common::rounding {
